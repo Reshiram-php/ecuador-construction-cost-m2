@@ -33,7 +33,7 @@ as a rough reference, not as a budget.
 - Files, included in `data/` and unmodified: `6__2025_ESED_BDD.csv` (data) and
   `8__2025_ESED_Diccionario_variables.xlsx` (data dictionary). Original source: INEC (link above).
 - One row per permit issued in 2025. The CSV is semicolon-separated, UTF-8 with a BOM.
-- As in the course, column names are lowercased (the INEC dictionary uses `COSM2`, `CARES`...).
+- Column names are lowercased (the INEC dictionary uses `COSM2`, `CARES`...).
 - Reconstructions (`ctipobr = 3`, 936 rows, all with `cosm2 = 0`) are removed:
   19,939 new constructions and 2,459 extensions remain.
 - Data handling worth knowing: province and canton codes are read as strings to keep
@@ -58,7 +58,7 @@ as a rough reference, not as a budget.
 Full analysis in [`notebook.ipynb`](notebook.ipynb). It is done on train + validation only; the test set is never touched.
 
 - **Target.** `cosm2` ranges from 40 to 1,500 with median 385. It is right-skewed (skew 1.81) and nearly
-  symmetric after `log1p` (-0.36), so the models predict `log1p(cosm2)`, as in the course.
+  symmetric after `log1p` (-0.36), so the models predict `log1p(cosm2)`.
   Only 66 rows (0.4%) are at or below 50; there is no natural cutoff, so they are kept.
   ![target](images/eda_target.png)
 - **Repeated values.** Seven values cover 48% of the permits. The 415 comes from a single canton
@@ -80,7 +80,7 @@ Full analysis in [`notebook.ipynb`](notebook.ipynb). It is done on train + valid
 
 ## Models
 
-Data split with `train_test_split` as in the course: 60% train, 20% validation, 20% test (`random_state=1`).
+Data split with `train_test_split`: 60% train, 20% validation, 20% test (`random_state=1`).
 Features are turned into dictionaries and one-hot encoded with `DictVectorizer`.
 Metrics: RMSE on the `log1p` scale (the training scale), RMSE in USD and R².
 
