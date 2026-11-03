@@ -100,7 +100,7 @@ Metrics: RMSE on the `log1p` scale (the training scale), RMSE in USD and R².
 | Ridge | `alpha` = 0.01 (flat between 0.01 and 3) | 0.363 | 0.010 | 158.7 | 0.414 |
 | Decision tree | `max_depth` = 10, `min_samples_leaf` = 5 | 0.342 | 0.017 | 124.8 | 0.478 |
 | Random forest | `max_depth` = 20, `min_samples_leaf` = 1, `max_features` = 0.2, 200 trees (tuned on validation) | 0.305 | 0.014 | 104.2 | 0.587 |
-| **XGBoost** | `eta` = 0.05, `max_depth` = 8, `min_child_weight` = 1, 592 trees (`xgb.cv`) | **0.304** | 0.014 | 106.8 | **0.589** |
+| **XGBoost** | `eta` = 0.05, `max_depth` = 8, `min_child_weight` = 1, 592 trees (`xgb.cv`) | **0.304** | 0.014 | 106.9 | **0.588** |
 
 XGBoost and the random forest are tied: the gap (0.001) is far below the fold-to-fold spread (0.014). In a tie XGBoost is deployed, because
 its pickled pipeline is about 23 times smaller (3.2 MB against 73.7 MB), which matters for the repository and the Docker image.
@@ -111,8 +111,8 @@ its pickled pipeline is about 23 times smaller (3.2 MB against 73.7 MB), which m
 | Model | RMSE (log1p) | RMSE (USD) | R² |
 |---|---|---|---|
 | Canton median (baseline) | 0.411 | 177.6 | 0.274 |
-| Random forest | 0.319 | 105.5 | 0.563 |
-| **XGBoost (deployed)** | **0.323** | **110.2** | **0.553** |
+| Random forest | 0.319 | 105.4 | 0.563 |
+| **XGBoost (deployed)** | **0.321** | **109.3** | **0.553** |
 
 An RMSE of 0.32 on the log scale means a typical error of roughly 30%.
 ![prediction](images/pred_vs_actual.png)
@@ -124,9 +124,8 @@ An RMSE of 0.32 on the log scale means a typical error of roughly 30%.
 - **Location.** Removing the canton raises the validation RMSE from 0.304 to 0.313, and removing the province as
   well to 0.324. Location matters, but the model is not just a lookup of the canton.
 - **Canton `1701`.** The model is almost exact there (RMSE 0.02), because every permit has the same value. On all other rows it is 0.33.
-- **Duplicates and the plain split.** The same XGBoost model was validated with the course's random split and with a split that keeps identical
+- **Duplicates and the plain split.** The same XGBoost model was validated with random split and with a split that keeps identical
   rows together, for 6 seeds. The difference changes sign from seed to seed (mean -0.003, standard deviation 0.011), so the random split
   does not inflate the score in a measurable way.
-- **Overfitting.** An unconstrained decision tree memorizes the training set (train RMSE 0.01, validation 0.42). XGBoost also fits the training
-  split much better than the validation split (0.18 against 0.30 at the last round) while the validation error keeps improving slightly.
+
 

@@ -1,0 +1,33 @@
+[project]
+name = "ecuador-construction-cost-m2"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Kevin Pacheco", email = "david3797@hotmail.com" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.162.0",
+    "numpy>=2.4.6",
+    "pandas>=3.1.0",
+    "scikit-learn>=1.9.1",
+    "uvicorn>=0.54.0",
+    "xgboost>=3.2.0",
+]
+
+[project.scripts]
+ecuador-construction-cost-m2 = "ecuador_construction_cost_m2:main"
+
+[build-system]
+requires = ["uv_build>=0.13.5,<0.14.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "ipykernel>=7.4.0",
+    "jupyterlab>=4.6.5",
+    "matplotlib>=3.11.2",
+    "nbconvert>=7.17.2",
+    "requests>=2.34.2",
+]
