@@ -97,13 +97,13 @@ Metrics: RMSE on the `log1p` scale (the training scale), RMSE in USD and R².
 | Model | Tuned parameters | RMSE (log1p), 5-fold CV | std across folds | RMSE (USD) | R² |
 |---|---|---|---|---|---|
 | Canton median (baseline) | none | 0.394 | 0.009 | 176.8 | 0.310 |
-| Ridge | `alpha` = 0.01 (flat between 0.01 and 3) | 0.363 | 0.010 | 158.7 | 0.414 |
+| Ridge | `alpha` = 0.1 (flat between 0.1 and 1) | 0.363 | 0.010 | 158.7 | 0.414 |
 | Decision tree | `max_depth` = 10, `min_samples_leaf` = 5 | 0.342 | 0.017 | 124.8 | 0.478 |
 | Random forest | `max_depth` = 20, `min_samples_leaf` = 1, `max_features` = 0.2, 200 trees (tuned on validation) | 0.305 | 0.014 | 104.2 | 0.587 |
-| **XGBoost** | `eta` = 0.05, `max_depth` = 8, `min_child_weight` = 1, 592 trees (`xgb.cv`) | **0.304** | 0.014 | 106.9 | **0.588** |
+| **XGBoost** | `eta` = 0.05, `max_depth` = 8, `min_child_weight` = 1, 592 trees (`xgb.cv`) | **0.304** | 0.013 | 107.0 | **0.588** |
 
 XGBoost and the random forest are tied: the gap (0.001) is far below the fold-to-fold spread (0.014). In a tie XGBoost is deployed, because
-its pickled pipeline is about 23 times smaller (3.2 MB against 73.7 MB), which matters for the repository and the Docker image.
+its pickled pipeline is about 24 times smaller (3.0 MB against 73.5 MB), which matters for the repository and the Docker image.
 ![learning curve](images/xgb_learning_curve.png)
 
 **Test set** (models retrained on train + validation as `make_pipeline(DictVectorizer(), model)`, evaluated once):
@@ -112,21 +112,22 @@ its pickled pipeline is about 23 times smaller (3.2 MB against 73.7 MB), which m
 |---|---|---|---|
 | Canton median (baseline) | 0.411 | 177.6 | 0.274 |
 | Random forest | 0.319 | 105.4 | 0.563 |
-| **XGBoost (deployed)** | **0.321** | **109.3** | **0.553** |
+| **XGBoost (deployed)** | **0.321** | **109.3** | **0.557** |
 
-An RMSE of 0.32 on the log scale means a typical error of roughly 30%.
+An RMSE of 0.32 on the log scale means a typical relative error of roughly 30-40% (a factor of about e^0.32 ≈ 1.4).
 ![prediction](images/pred_vs_actual.png)
 
 **What the experiments show**
-- **Feature importance.** Canton and province together account for about two thirds of the XGBoost gain; the financing
-  origin (`cdisprfi`) comes next, followed by the region and a group of materials and use columns.
+- **Feature importance.** Canton (0.383) and province (0.258) together account for about 64% of the XGBoost gain; the financing
+  origin (`cdisprfi`, 0.056) comes next, followed by the wall material (`pared`) and a group of region, structure and occupation columns.
   ![importance](images/feature_importance.png)
-- **Location.** Removing the canton raises the validation RMSE from 0.304 to 0.313, and removing the province as
-  well to 0.324. Location matters, but the model is not just a lookup of the canton.
+- **Location.** Removing the canton raises the validation RMSE from 0.305 to 0.317, and removing the province as
+  well to 0.322. Location matters, but the model is not just a lookup of the canton.
 - **Canton `1701`.** The model is almost exact there (RMSE 0.02), because every permit has the same value. On all other rows it is 0.33.
 - **Duplicates and the plain split.** The same XGBoost model was validated with random split and with a split that keeps identical
-  rows together, for 6 seeds. The difference changes sign from seed to seed (mean -0.003, standard deviation 0.011), so the random split
+  rows together, for 6 seeds. The difference changes sign from seed to seed (mean -0.002, standard deviation 0.009), so the random split
   does not inflate the score in a measurable way.
+- **Overfitting.** XGBoost fits the training split much better than the validation split (RMSE 0.19 against 0.31 at the last round), while the validation error still improves slowly.
 
 ## Project files
 
@@ -160,7 +161,7 @@ uv run uvicorn predict:app --host 0.0.0.0 --port 8000
 # interactive documentation: http://localhost:8000/docs
 
 # 4. In another terminal, send a building to the service
-uv run python predict-test.py
+uv run python predict_test.py
 ```
 
 **Notebook.** `uv sync` also installs the development group (Jupyter, matplotlib). Open it with `uv run jupyter lab`.
@@ -171,7 +172,7 @@ Running it end to end takes about 15 minutes on a single core, mostly because of
 ```bash
 docker build -t construction-cost-m2 .
 docker run -it --rm -p 8000:8000 construction-cost-m2
-uv run python predict-test.py       # from the host
+uv run python predict_test.py       # from the host
 ```
 
 ## API
@@ -191,7 +192,7 @@ curl -X POST http://localhost:8000/predict -H "Content-Type: application/json" -
   "cares": 71, "carnres": 0, "csute": 360, "caesv": 289, "carpat": 0,
   "nupical": 1, "cperm": 1, "cnuvical": 1, "nucucal": 7, "nudocal": 2
 }'
-# {"cost_per_m2_usd": 282.67}
+# {"cost_per_m2_usd": 280.48}
 ```
 
 This is the first permit of the test set (taken without looking at the prediction), whose declared cost is 280 USD/m².
@@ -210,7 +211,7 @@ Only 1 of the 4,480 permits of the test set (a canton never seen in training) wo
 
 - The data is in the repository and the random seed is fixed (`random_state=1`).
 - Exact dependency versions are in `uv.lock`; the Python version is in `.python-version`.
-- `train.py` reproduces the pipeline of the notebook exactly (same file, `pipeline_v1.bin`) and its test metrics (RMSE log1p 0.323, RMSE USD 110.2, R² 0.553).
+- `train.py` reproduces the pipeline of the notebook exactly (same file, `pipeline_v1.bin`) and its test metrics (RMSE log1p 0.321, RMSE USD 109.3, R² 0.557).
 
 ## Limitations and next steps
 
@@ -221,3 +222,4 @@ Only 1 of the 4,480 permits of the test set (a canton never seen in training) wo
 - Tuning grids are small, and the random forest is tuned on the validation split rather than with cross-validation. With `max_depth` 3 and 4, `xgb.cv` reached the cap of 1,000 trees, so those two settings were not fully explored (the deeper trees won anyway).
 - A wider search, or quantile regression to give a price range instead of a single value, could be tried.
 - The service is not deployed to a cloud provider.
+

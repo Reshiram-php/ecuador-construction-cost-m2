@@ -12,7 +12,7 @@ data_path = "data/6__2025_ESED_BDD.csv"
 output_file = "pipeline_v1.bin"
 
 xgb_params = dict(
-    n_estimators=592,
+    n_estimators=548,
     learning_rate=0.05,
     max_depth=8,
     min_child_weight=1,
