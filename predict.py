@@ -1,10 +1,8 @@
-
-
 import pickle
 
 import numpy as np
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class Building(BaseModel):
@@ -43,18 +41,18 @@ class Building(BaseModel):
     casaedif: str
     tipfinan: str
     valterr: str
-    # size and shape
-    cares: float
-    carnres: float
-    csute: float
-    caesv: float
-    carpat: float
-    nupical: float
-    cperm: float
-    cnuvical: float
+    # size and shape (never negative)
+    cares: float = Field(ge=0)
+    carnres: float = Field(ge=0)
+    csute: float = Field(ge=0)
+    caesv: float = Field(ge=0)
+    carpat: float = Field(ge=0)
+    nupical: float = Field(ge=0)
+    cperm: float = Field(ge=0)
+    cnuvical: float = Field(ge=0)
     # not applicable for non-residential buildings
-    nucucal: float = 0
-    nudocal: float = 0
+    nucucal: float = Field(default=0, ge=0)
+    nudocal: float = Field(default=0, ge=0)
 
 
 class PredictResponse(BaseModel):
@@ -66,11 +64,18 @@ app = FastAPI(title="construction-cost-m2")
 with open("pipeline_v1.bin", "rb") as f_in:
     pipeline = pickle.load(f_in)
 
-vocabulary = pipeline.steps[0][1].vocabulary_
+# DictVectorizer feature names look like "codcantf=0901": from them we know, for every coded column,
+# which values were seen in training. A value never seen would silently become an all-zero one-hot
+# row (the model would ignore that column), so it is rejected instead.
+valid_codes = {}
+for feature in pipeline.steps[0][1].vocabulary_:
+    if "=" in feature:
+        column, value = feature.split("=", 1)
+        valid_codes.setdefault(column, set()).add(value)
 
 
 def predict_single(building: dict) -> float:
-    pred = pipeline.predict([building])[0]   
+    pred = pipeline.predict([building])[0]   # the model works on log1p(cost)
     return float(np.expm1(pred))
 
 
@@ -88,13 +93,19 @@ def predict(building: Building) -> PredictResponse:
             status_code=422,
             detail="ctipobr must be 1 (new construction) or 2 (extension); reconstructions are not supported.",
         )
-    # An unseen code would silently become an all-zero one-hot row, so it is rejected
-    for col in ("codprovf", "codcantf"):
-        if f"{col}={data[col]}" not in vocabulary:
+    for column, allowed in valid_codes.items():
+        if data[column] not in allowed:
+            hint = f"; valid values: {sorted(allowed)}" if len(allowed) <= 15 else ""
             raise HTTPException(
                 status_code=422,
-                detail=f"{col}={data[col]} does not appear in the training data.",
+                detail=f"{column}={data[column]} does not appear in the training data{hint}.",
             )
+    # Canton codes start with their province code
+    if not data["codcantf"].startswith(data["codprovf"]):
+        raise HTTPException(
+            status_code=422,
+            detail=f"codcantf={data['codcantf']} does not belong to province codprovf={data['codprovf']}.",
+        )
 
     cost = predict_single(data)
     return PredictResponse(cost_per_m2_usd=round(cost, 2))

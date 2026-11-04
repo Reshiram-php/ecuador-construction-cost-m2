@@ -1,6 +1,6 @@
 # Construction cost per m² in Ecuador (ESED 2025)
 
-A regression model that estimates the declared construction cost per square meter of a building permit in Ecuador.
+![banenr](images/banner.png)
 
 ## Problem description
 
@@ -128,4 +128,96 @@ An RMSE of 0.32 on the log scale means a typical error of roughly 30%.
   rows together, for 6 seeds. The difference changes sign from seed to seed (mean -0.003, standard deviation 0.011), so the random split
   does not inflate the score in a measurable way.
 
+## Project files
 
+```
+├── data/                       # original INEC files (data + dictionary)
+├── images/                     # figures used in this README
+├── notebook.ipynb              # data preparation, EDA, feature importance, model selection and tuning
+├── train.py                    # trains the final pipeline and saves it to pipeline_v1.bin
+├── predict.py                  # FastAPI service
+├── predict_test.py             # sends one building to the running service
+├── pipeline_v1.bin             # saved pipeline: DictVectorizer + XGBoost
+├── pyproject.toml              # dependencies (uv)
+├── uv.lock                     # exact versions
+├── .python-version             # Python 3.11
+└── Dockerfile
+```
+
+## How to run
+
+The environment is managed with [uv](https://docs.astral.sh/uv/getting-started/installation/). Run everything from the repository root.
+
+```bash
+# 1. Environment: creates .venv with the exact versions of uv.lock (Python 3.11)
+uv sync
+
+# 2. Train: takes a few seconds, regenerates pipeline_v1.bin and prints the test metrics
+uv run python train.py
+
+# 3. Serve
+uv run uvicorn predict:app --host 0.0.0.0 --port 8000
+# interactive documentation: http://localhost:8000/docs
+
+# 4. In another terminal, send a building to the service
+uv run python predict-test.py
+```
+
+**Notebook.** `uv sync` also installs the development group (Jupyter, matplotlib). Open it with `uv run jupyter lab`.
+Running it end to end takes about 15 minutes on a single core, mostly because of the random forest tuning and the cross-validation.
+
+**Docker.** The image installs the locked versions with `uv sync --locked --no-dev`.
+
+```bash
+docker build -t construction-cost-m2 .
+docker run -it --rm -p 8000:8000 construction-cost-m2
+uv run python predict-test.py       # from the host
+```
+
+## API
+
+`GET /health` returns `{"status": "ok"}`.
+
+`POST /predict` takes the 37 features. Coded columns are strings (leading zeros matter: `"09"`, `"0901"`; integers are
+accepted and converted), areas and counts are numbers, and `nucucal` / `nudocal` are optional (default 0).
+
+```bash
+curl -X POST http://localhost:8000/predict -H "Content-Type: application/json" -d '{
+  "codreg": "3", "codprovf": "21", "codcantf": "2101", "careaur": "2",
+  "cimi": "120", "piso": "152", "estru": "125", "entrepisos": "5", "pared": "126", "cubi": "135",
+  "ctipobr": "1", "cores": "160", "coams": "0", "cdispuso": "1", "cdisprfi": "12",
+  "espverd": "2", "asagua": "1", "asluz": "1", "asalcant": "1", "cintern": "1", "astelf": "1", "aedif": "5005",
+  "tocup": "5011", "fideic": "2", "casaedif": "1", "tipfinan": "6002", "valterr": "1",
+  "cares": 71, "carnres": 0, "csute": 360, "caesv": 289, "carpat": 0,
+  "nupical": 1, "cperm": 1, "cnuvical": 1, "nucucal": 7, "nudocal": 2
+}'
+# {"cost_per_m2_usd": 282.67}
+```
+
+This is the first permit of the test set (taken without looking at the prediction), whose declared cost is 280 USD/m².
+One example says little: the typical error is the one described above.
+
+The service rejects (HTTP 422):
+- reconstructions (`ctipobr = 3`);
+- any coded value that does not appear in the training data (for example `codreg = 5`; for columns with few values, the response lists the valid ones);
+- a canton that does not belong to the given province;
+- negative areas or counts, unknown fields and missing fields.
+
+Without this check an unseen code would silently become an all-zero one-hot row and the model would predict anyway, ignoring that column.
+Only 1 of the 4,480 permits of the test set (a canton never seen in training) would be rejected.
+
+## Reproducibility
+
+- The data is in the repository and the random seed is fixed (`random_state=1`).
+- Exact dependency versions are in `uv.lock`; the Python version is in `.python-version`.
+- `train.py` reproduces the pipeline of the notebook exactly (same file, `pipeline_v1.bin`) and its test metrics (RMSE log1p 0.323, RMSE USD 110.2, R² 0.553).
+
+## Limitations and next steps
+
+- The target is a declared estimate, and part of it reflects each municipality's reporting practice rather than construction costs.
+- Only 2025 permits are used; costs from other years are not comparable without adjusting for inflation.
+- Codes that are not in the training data (including cantons) are rejected instead of falling back to a coarser estimate.
+- The service does not check that the region matches the province (for example region 1 with province 09 is accepted).
+- Tuning grids are small, and the random forest is tuned on the validation split rather than with cross-validation. With `max_depth` 3 and 4, `xgb.cv` reached the cap of 1,000 trees, so those two settings were not fully explored (the deeper trees won anyway).
+- A wider search, or quantile regression to give a price range instead of a single value, could be tried.
+- The service is not deployed to a cloud provider.
