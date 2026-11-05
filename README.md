@@ -100,7 +100,7 @@ Metrics: RMSE on the `log1p` scale (the training scale), RMSE in USD and R².
 | Ridge | `alpha` = 0.1 (flat between 0.1 and 1) | 0.363 | 0.010 | 158.7 | 0.414 |
 | Decision tree | `max_depth` = 10, `min_samples_leaf` = 5 | 0.342 | 0.017 | 124.8 | 0.478 |
 | Random forest | `max_depth` = 20, `min_samples_leaf` = 1, `max_features` = 0.2, 200 trees (tuned on validation) | 0.305 | 0.014 | 104.2 | 0.587 |
-| **XGBoost** | `eta` = 0.05, `max_depth` = 8, `min_child_weight` = 1, 592 trees (`xgb.cv`) | **0.304** | 0.013 | 107.0 | **0.588** |
+| **XGBoost** | `eta` = 0.05, `max_depth` = 8, `min_child_weight` = 1, 548 trees (`xgb.cv`) | **0.304** | 0.013 | 107.0 | **0.588** |
 
 XGBoost and the random forest are tied: the gap (0.001) is far below the fold-to-fold spread (0.014). In a tie XGBoost is deployed, because
 its pickled pipeline is about 24 times smaller (3.0 MB against 73.5 MB), which matters for the repository and the Docker image.
