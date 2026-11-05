@@ -1,6 +1,6 @@
 # Construction cost per m² in Ecuador (ESED 2025)
 
-![banenr](images/banner.png)
+![banner](images/banner.png)
 
 ## Problem description
 
@@ -87,7 +87,7 @@ Metrics: RMSE on the `log1p` scale (the training scale), RMSE in USD and R².
 **How the models are tuned and compared.**
 - **5-fold cross-validation** (`KFold`, `random_state=1`) on train + validation tunes Ridge, the decision tree and XGBoost,
   and it compares all the models. Each fold fits its own `DictVectorizer`.
-- **XGBoost **: the data goes into `xgb.DMatrix`, each candidate of `eta`, `max_depth` and
+- **XGBoost**: the data goes into `xgb.DMatrix`, each candidate of `eta`, `max_depth` and
   `min_child_weight` is scored with `xgb.cv` (same 5 folds, early stopping, which also gives the number of trees), and the final
   parameters are trained with `xgb.train` and a train/validation watchlist. The deployed pipeline uses `XGBRegressor` with the same
   parameters.
@@ -147,7 +147,10 @@ An RMSE of 0.32 on the log scale means a typical relative error of roughly 30-40
 
 ## How to run
 
-The environment is managed with [uv](https://docs.astral.sh/uv/getting-started/installation/). Run everything from the repository root.
+There are two ways to run the project. **Docker only** needs nothing installed besides Docker
+Desktop (Python and `uv` are installed inside the image). The **uv route** needs
+[uv](https://docs.astral.sh/uv/getting-started/installation/) on your machine and is the one to use
+for training or for the notebook. Run everything from the repository root.
 
 ```bash
 # 1. Environment: creates .venv with the exact versions of uv.lock (Python 3.11)
@@ -167,12 +170,30 @@ uv run python predict_test.py
 **Notebook.** `uv sync` also installs the development group (Jupyter, matplotlib). Open it with `uv run jupyter lab`.
 Running it end to end takes about 15 minutes on a single core, mostly because of the random forest tuning and the cross-validation.
 
-**Docker.** The image installs the locked versions with `uv sync --locked --no-dev`.
+**Docker (no uv needed).** The image installs the locked versions with `uv sync --locked --no-dev`.
 
 ```bash
 docker build -t construction-cost-m2 .
 docker run -it --rm -p 8000:8000 construction-cost-m2
-uv run python predict_test.py       # from the host
+```
+
+Leave that terminal open: the service stops when the container stops. To check that it works,
+using only Docker and a browser:
+
+1. Open http://localhost:8000/health. It should return `{"status": "ok"}`.
+2. Open http://localhost:8000/docs, expand `POST /predict`, click **Try it out**, paste the JSON
+   from the [API](#api) section and click **Execute**. The expected response is
+   `{"cost_per_m2_usd": 280.48}`.
+
+You can also send the `curl` request from the [API](#api) section (on Windows PowerShell use
+`curl.exe`, and note that the multi-line quoting differs).
+
+`predict_test.py` is optional. It runs **on your machine, not inside the container**, so it
+needs the uv environment from the steps above (`uv sync`), otherwise you will get
+`uv: command not found`:
+
+```bash
+uv run python predict_test.py
 ```
 
 ## API
