@@ -232,7 +232,7 @@ Only 1 of the 4,480 permits of the test set (a canton never seen in training) wo
 
 - The data is in the repository and the random seed is fixed (`random_state=1`).
 - Exact dependency versions are in `uv.lock`; the Python version is in `.python-version`.
-- `train.py` reproduces the pipeline of the notebook exactly (same file, `pipeline_v1.bin`) and its test metrics (RMSE log1p 0.321, RMSE USD 109.3, R² 0.557).
+- `train.py` reproduces the test metrics of the notebook's deployed model (RMSE log1p 0.321, RMSE USD 109.3, R² 0.557); small differences in the last digit can appear between machines.
 
 ## Limitations and next steps
 
